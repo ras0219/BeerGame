@@ -414,6 +414,12 @@ var gameType = graphql.NewObject(
 			"id": &graphql.Field{
 				Type: graphql.String,
 			},
+			"week": &graphql.Field{
+				Type: graphql.Int,
+			},
+			"lastweek": &graphql.Field{
+				Type: graphql.Int,
+			},
 			"players": &graphql.Field{
 				Type: graphql.NewList(playerType),
 				Resolve: func(p graphql.ResolveParams) (interface{}, error) {

@@ -6,6 +6,8 @@ export const GameSubscriptions = {
         subscription Game($gameId: String!) {
             game(gameId: $gameId) {
                 id
+                week
+                lastweek
                 players {
                     id
                     name
@@ -30,6 +32,9 @@ export const GameSubscriptions = {
     playerState: gql`
         subscription PlayerState($gameId: String!, $playerId: String!) {
             playerState(gameId: $gameId, playerId: $playerId) {
+                player {
+                    name
+                }
                 incoming
                 outgoing
                 stock
@@ -37,7 +42,14 @@ export const GameSubscriptions = {
                 lastsent
                 pending0
                 outgoingprev
+                stockbackprev
+                costprev
+                costs
                 outstanding
+                role {
+                    name
+                    value
+                }
             }
         }
     `,

@@ -17,15 +17,13 @@ function Graph() {
         }
         var h = 150;
         var w = 150;
-        var xScale = d3.scaleLinear()
-            .domain([0, this.props.data.length - 1])
-            .rangeRound([0, w]);
-        svg.append("g")
-            .attr("class", "axis")
-            .attr("transform", "translate(0," + h + ")")
-            .call(d3.axisBottom()
-                .ticks(4)
-                .scale(xScale));
+        if (this.props.title !== undefined) {
+            svg.append("text")
+                .attr("x", w / 2)
+                .attr("y", 0)
+                .attr("text-anchor", "middle")
+                .text(this.props.title);
+        }
 
         var yScale = d3.scaleLinear()
             .domain(d3.extent(this.props.data))
@@ -35,6 +33,16 @@ function Graph() {
             .call(d3.axisLeft()
                 .ticks(4)
                 .scale(yScale));
+
+        var xScale = d3.scaleLinear()
+            .domain([0, this.props.data.length - 1])
+            .rangeRound([0, w]);
+        svg.append("g")
+            .attr("class", "axis")
+            .attr("transform", "translate(0," + yScale(0) + ")")
+            .call(d3.axisBottom()
+                .ticks(4)
+                .scale(xScale));
 
         svg.append("path")
             .datum(this.props.data)

@@ -33,12 +33,11 @@ function Play() {
 
     return (
         <div>
-            <h1>'{this.props.game.id}'</h1>
-
-            <Graph data={data.playerState.outgoingprev} />
+            <h1>'{this.props.game.id}' Week {this.props.game.week + 1}/{this.props.game.lastweek}</h1>
+            <h2>{data.playerState.role.name}</h2>
 
             <div class="player-state">
-                {this.props.game.playerState.sort(function(a, b) {
+                {this.props.game.playerState.sort(function (a, b) {
                     return a.role.value - b.role.value;
                 }).map(state => (
                     <div class={"block " + (state.outgoing == -1 ? "waiting" : "done")}>
@@ -51,7 +50,7 @@ function Play() {
             <div class="game-state">
                 <div class="block incoming">
                     <span class="title">Incoming</span>
-                    <span class="value">{ data.playerState.incoming }</span>
+                    <span class="value">{data.playerState.incoming}</span>
                 </div>
                 <div class="block outgoing">
                     <span class="title">Outgoing</span>
@@ -74,30 +73,36 @@ function Play() {
                 </div>
                 <div class="block backlog">
                     <span class="title">Backlog</span>
-                    <span class="value">{ data.playerState.backlog }</span>
+                    <span class="value">{data.playerState.backlog}</span>
                 </div>
                 <div class="block stock">
                     <span class="title">Stock</span>
-                    <span class="value">{ data.playerState.stock }</span>
+                    <span class="value">{data.playerState.stock}</span>
                 </div>
                 <div class="indicator last-sent-indicator">
                     <span class="title">&#9654;</span>
                 </div>
                 <div class="block last-sent">
                     <span class="title">Last Sent</span>
-                    <span class="value">{ data.playerState.lastsent }</span>
+                    <span class="value">{data.playerState.lastsent}</span>
                 </div>
                 <div class="indicator pending-next-indicator">
                     <span class="title">&#9664;</span>
                 </div>
                 <div class="block pending-next">
                     <span class="title">Pending</span>
-                    <span class="value">{ data.playerState.pending0 }</span>
+                    <span class="value">{data.playerState.pending0}</span>
                 </div>
                 <div class="block pending-all">
                     <span class="title">Outstanding</span>
-                    <span class="value">{ data.playerState.outstanding }</span>
+                    <span class="value">{data.playerState.outstanding}</span>
                 </div>
+            </div>
+
+            <div>
+                <Graph data={data.playerState.outgoingprev} title="Outgoing History" />
+                <Graph data={data.playerState.costprev} title="Costs History" />
+                <Graph data={data.playerState.stockbackprev} title="Stock History" />
             </div>
         </div>
     );

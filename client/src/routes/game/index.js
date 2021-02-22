@@ -4,6 +4,7 @@ import { useQuery, useMutation, useSubscription } from '@apollo/react-hooks';
 
 import Lobby from "./lobby"
 import Play from "./play"
+import PlayerResults from '../../components/playerresults'
 
 import { GameQueries, GameSubscriptions } from '../../gql/game'
 
@@ -37,10 +38,19 @@ function Game({ id }) {
             <Play user={this.props.user} game={data.game} />
         );
     } else if (data.game.state.name == "finished") {
-        <div>
-            <h1>'{this.props.id}'</h1>
-            TODO: Finished
-        </div>
+        return (
+            <div>
+                <h1>'{this.props.id}'</h1>
+                Game Complete!
+                <div class="player-state">
+                    {data.game.playerState.sort(function(a, b) {
+                        return a.role.value - b.role.value;
+                        }).map(state => (
+                            <PlayerResults gameId={id} playerId={state.player.id} />
+                        ))}
+                </div>
+            </div>
+        );
     }
     return (
         <div>
