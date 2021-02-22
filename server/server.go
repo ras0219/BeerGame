@@ -695,7 +695,7 @@ var mutationType = graphql.NewObject(graphql.ObjectConfig{
 				}
 
 				outgoing, validOutgoing := p.Args["outgoing"].(int)
-				if !validOutgoing {
+				if !validOutgoing || outgoing < 0 || outgoing > 99 {
 					return false, nil
 				}
 
