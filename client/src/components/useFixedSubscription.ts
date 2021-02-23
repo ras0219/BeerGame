@@ -4,6 +4,8 @@ import { DocumentNode } from "graphql";
 import { useState } from 'preact/hooks';
 import { useSubscription } from '@apollo/react-hooks';
 
+// https://github.com/apollographql/react-apollo/issues/3802
+
 export function useFixedSubscription<TData = any, TVariables = OperationVariables>(subscription: DocumentNode, options?: SubscriptionHookOptions<TData, TVariables>): {
     variables: TVariables | undefined;
     loading: boolean;
