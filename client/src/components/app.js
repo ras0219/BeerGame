@@ -1,32 +1,32 @@
 import { Router } from 'preact-router';
 import { useState } from 'preact/hooks';
+import { useQuery, useMutation } from '@apollo/react-hooks';
 
-import ApolloClient from "apollo-client";
-import { WebSocketLink } from 'apollo-link-ws';
+import { existsCookie, getCookie } from '../utils/cookie';
+
+import Home from 'async!../routes/home';
+import Game from 'async!../routes/game';
+import Preferences from '../routes/preferences';
+
+import { PlayerQueries } from '../gql/player';
+
+import { ApolloClient } from "apollo-client";
 import { HttpLink } from 'apollo-link-http';
 import { split } from 'apollo-link';
 import { getMainDefinition } from 'apollo-utilities';
 import { InMemoryCache } from 'apollo-cache-inmemory';
 
 import { ApolloProvider } from '@apollo/react-hooks';
-import { useQuery } from '@apollo/react-hooks';
 
-import { existsCookie, getCookie } from '../utils/cookie';
-
-import Home from '../routes/home';
-import Game from '../routes/game';
-import Perferences from '../routes/preferences';
-
-import { PlayerQueries } from '../gql/player'
+import { WebSocketLink } from './graphql-ws-link';
 
 const httpLink = new HttpLink({
     uri: `${(location.protocol == 'https:') ? "https" : "http"}://${window.location.host}/graphql`,
 });
+
 const wsLink = new WebSocketLink({
-    uri: `${(location.protocol == 'https:') ? "wss" : "ws"}://${window.location.host}/wsgraphql`,
-    options: {
-        reconnect: true
-    }
+    url: `${(location.protocol == 'https:') ? "wss" : "ws"}://${window.location.host}/wsgraphql`,
+    keepAlive: 1000
 });
 
 const splitLink = split(
@@ -38,7 +38,8 @@ const splitLink = split(
         );
     },
     wsLink,
-    httpLink,
+    //httpLink,
+    wsLink
 );
 
 const client = new ApolloClient({
@@ -65,7 +66,9 @@ function AppRoot() {
     const player = data ? data.player : null
     if (userPreferences.showPreferences) {
         return (
-            <Perferences user={player} setUserPreferences={setUserPreferences} />
+            <div>
+                <Preferences user={player} setUserPreferences={setUserPreferences} />
+            </div>
         )
     }
 
@@ -76,7 +79,8 @@ function AppRoot() {
             <a href="#" onClick={e => {
                 e.preventDefault();
                 setUserPreferences({ showPreferences: true });
-            }}>Options</a>
+            }
+            }> Options </a>
             <Router onChange={e => { this.currentUrl = e.url; }}>
                 <Home path="/" user={player} />
                 <Game path="/game/:id" user={player} />
@@ -87,8 +91,8 @@ function AppRoot() {
 
 function App() {
     return (
-        <ApolloProvider client={client}>
-            <div id="app">
+        <ApolloProvider client={client} >
+            <div id="app" >
                 <AppRoot />
             </div>
         </ApolloProvider>

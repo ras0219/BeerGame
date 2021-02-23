@@ -1,24 +1,18 @@
 import { useState } from 'preact/hooks';
 
-import { useQuery, useMutation, useSubscription } from '@apollo/react-hooks';
+import { useQuery, useMutation } from '@apollo/react-hooks';
+import { useFixedSubscription } from '../../components/useFixedSubscription';
 
 import { GameQueries, GameSubscriptions } from '../../gql/game'
 import Graph from '../../components/graph'
 
 function Play() {
-    const { loading, error, data } = useSubscription(GameSubscriptions.playerState, {
+    const { loading, error, data } = useFixedSubscription(GameSubscriptions.playerState, {
         variables: {
             gameId: this.props.game.id,
             playerId: this.props.user.id
-        },
-        shouldResubscribe: true
+        }
     });
-
-    if (loading) return 'Loading...';
-    if (error) {
-        console.log(error);
-        return "Error!";
-    }
 
     const [state, setState] = useState({
         value: '',
@@ -30,6 +24,12 @@ function Play() {
             playerId: this.props.user.id
         },
     });
+
+    if (loading) return 'Loading Play...';
+    if (error) {
+        console.log(error);
+        return "Error!";
+    }
 
     return (
         <div>

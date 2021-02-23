@@ -5,12 +5,6 @@ import { GameQueries } from '../../gql/game'
 function Lobby() {
     const { loading, error, data } = useQuery(GameQueries.getRoles);
 
-    if (loading) return 'Loading Lobby...';
-    if (error) {
-        console.log(error);
-        return "Error!";
-    }
-
     const [leaveGame] = useMutation(GameQueries.leaveGame, {
         variables: { 
             gameId: this.props.game.id
@@ -26,6 +20,12 @@ function Lobby() {
             gameId: this.props.game.id
         },
     });
+
+    if (loading) return 'Loading Lobby...';
+    if (error) {
+        console.log(error);
+        return "Error!";
+    }
 
     return (
         <div>

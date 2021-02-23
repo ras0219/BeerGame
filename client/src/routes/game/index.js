@@ -1,6 +1,6 @@
 import { useEffect } from 'preact/hooks';
-
-import { useQuery, useMutation, useSubscription } from '@apollo/react-hooks';
+import { useMutation } from '@apollo/react-hooks';
+import { useFixedSubscription } from '../../components/useFixedSubscription';
 
 import Lobby from "./lobby"
 import Play from "./play"
@@ -9,9 +9,8 @@ import PlayerResults from '../../components/playerresults'
 import { GameQueries, GameSubscriptions } from '../../gql/game'
 
 function Game({ id }) {
-    const { loading, error, data } = useSubscription(GameSubscriptions.gameState, {
-        variables: { gameId: id },
-        shouldResubscribe: true
+    const { loading, error, data } = useFixedSubscription(GameSubscriptions.gameState, {
+        variables: { gameId: id }
     });
     const [joinGame] = useMutation(GameQueries.joinGame, {
         variables: { 
@@ -19,7 +18,7 @@ function Game({ id }) {
         }
     });
 
-    if (loading) return 'Loading...';
+    if (loading) return 'Loading Game...';
     if (error) {
         console.log(error);
         return "Error!";

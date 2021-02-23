@@ -1,17 +1,17 @@
-import { useSubscription } from '@apollo/react-hooks';
+import { useFixedSubscription } from '../components/useFixedSubscription';
 
 import { GameSubscriptions } from '../gql/game'
 import Graph from './graph'
 
 function PlayerResults() {
-    const { loading, error, data } = useSubscription(GameSubscriptions.playerState, {
+    const { loading, error, data } = useFixedSubscription(GameSubscriptions.playerState, {
         variables: {
             gameId: this.props.gameId,
             playerId: this.props.playerId
         }
     });
 
-    if (loading) return 'Loading...';
+    if (loading) return 'Loading Results...';
     if (error) {
         console.log(error);
         return "Error!";

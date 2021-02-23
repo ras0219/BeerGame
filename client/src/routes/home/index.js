@@ -1,7 +1,7 @@
 import { useState } from 'preact/hooks';
 
 import gql from 'graphql-tag';
-import { useQuery, useSubscription } from '@apollo/react-hooks';
+import { useQuery } from '@apollo/react-hooks';
 
 import { GameQueries } from '../../gql/game'
 

@@ -48,5 +48,4 @@ function Preferences() {
         </div>
     );
 }
-
 export default Preferences;

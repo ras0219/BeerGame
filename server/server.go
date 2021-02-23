@@ -7,7 +7,6 @@ import (
 	"os"
 	"path/filepath"
 	"strings"
-	"time"
 
 	"golang.org/x/net/websocket"
 
@@ -888,7 +887,7 @@ func (h *SubscriptionHandler) handler(ws *websocket.Conn) {
 				Type: "connection_ack",
 			}
 			websocket.JSON.Send(ws, resp)
-		case "start":
+		case "subscribe":
 			subscriber := Subscriber{
 				ID:            h.uniqueId(),
 				Conn:          ws,
@@ -896,9 +895,32 @@ func (h *SubscriptionHandler) handler(ws *websocket.Conn) {
 				Variables:     msg.Payload.Variables,
 				OperationID:   msg.OperationID,
 			}
-			h.Subscribers = append(h.Subscribers, subscriber)
-			go h.initilizeSubscriber(&subscriber)
-		case "stop":
+			if strings.HasPrefix(msg.Payload.Query, "subscription ") {
+				h.Subscribers = append(h.Subscribers, subscriber)
+				succeeded := subscriber.broadcast(h.Schema)
+				if !succeeded {
+					h.removeSubscriber(subscriber.ID)
+				}
+			} else {
+				payload := graphql.Do(graphql.Params{
+					Schema:         *h.Schema,
+					RequestString:  subscriber.RequestString,
+					VariableValues: subscriber.Variables,
+				})
+				msg := map[string]interface{}{
+					"type":    "next",
+					"id":      subscriber.OperationID,
+					"payload": payload,
+				}
+				websocket.JSON.Send(subscriber.Conn, msg)
+				msg = map[string]interface{}{
+					"type": "complete",
+					"id":   subscriber.OperationID,
+				}
+				websocket.JSON.Send(subscriber.Conn, msg)
+			}
+		case "complete":
+			h.removeSubscriberByOpID(msg.OperationID)
 		default:
 			println("Unknown message:", msg.Type)
 		}
@@ -913,6 +935,14 @@ func (h *SubscriptionHandler) removeSubscriber(id int) {
 		}
 	}
 }
+func (h *SubscriptionHandler) removeSubscriberByOpID(id string) {
+	for index, subscriber := range h.Subscribers {
+		if subscriber.OperationID == id {
+			h.Subscribers = append(h.Subscribers[:index], h.Subscribers[index+1:]...)
+			return
+		}
+	}
+}
 
 func (subscriber *Subscriber) broadcast(schema *graphql.Schema) bool {
 	payload := graphql.Do(graphql.Params{
@@ -921,7 +951,7 @@ func (subscriber *Subscriber) broadcast(schema *graphql.Schema) bool {
 		VariableValues: subscriber.Variables,
 	})
 	msg := map[string]interface{}{
-		"type":    "data",
+		"type":    "next",
 		"id":      subscriber.OperationID,
 		"payload": payload,
 	}
@@ -929,14 +959,6 @@ func (subscriber *Subscriber) broadcast(schema *graphql.Schema) bool {
 		return false
 	}
 	return true
-}
-
-func (h *SubscriptionHandler) initilizeSubscriber(subscriber *Subscriber) {
-	time.Sleep(100 * time.Millisecond)
-	succeeded := subscriber.broadcast(h.Schema)
-	if !succeeded {
-		h.removeSubscriber(subscriber.ID)
-	}
 }
 
 func (h *SubscriptionHandler) broadcast() {
