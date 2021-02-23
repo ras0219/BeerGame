@@ -8,6 +8,7 @@ export const GameSubscriptions = {
                 id
                 week
                 lastweek
+                totalcustomer
                 players {
                     id
                     name
@@ -42,7 +43,9 @@ export const GameSubscriptions = {
                 lastsent
                 pending0
                 outgoingprev
+                incomingprev
                 stockbackprev
+                deliveredprev
                 costprev
                 costs
                 outstanding

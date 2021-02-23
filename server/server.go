@@ -92,17 +92,22 @@ type PlayerState struct {
 	Pending0      int    `json:"pending0"`
 	Pending1      int    `json:"pending1"`
 	Costs         int    `json:"costs"`
-	OutgoingPrev  []int  `json:"outgoingprev"`
-	StockBackPrev []int  `json:"stockbackprev"`
-	CostPrev      []int  `json:"costprev"`
+	Delivered     int
+	OutgoingPrev  []int `json:"outgoingprev"`
+	IncomingPrev  []int `json:"incomingprev"`
+	StockBackPrev []int `json:"stockbackprev"`
+	CostPrev      []int `json:"costprev"`
+	DeliveredPrev []int `json:"deliveredprev"`
 }
 
 type Game struct {
-	ID          string         `json:"id"`
-	State       int            `json:"state"`
-	PlayerState []*PlayerState `json:"playerState"`
-	Week        int            `json:"week"`
-	LastWeek    int            `json:"lastweek"`
+	ID            string         `json:"id"`
+	State         int            `json:"state"`
+	PlayerState   []*PlayerState `json:"playerState"`
+	Week          int            `json:"week"`
+	LastWeek      int            `json:"lastweek"`
+	TotalCustomer int            `json:"totalcustomer"`
+	IncCustomer   int
 }
 
 var Games = map[string]*Game{}
@@ -121,11 +126,13 @@ func FindOrCreateGame(id string) *Game {
 	game, found := Games[id]
 	if !found {
 		newGame := &Game{
-			ID:          id,
-			State:       LOBBY,
-			PlayerState: []*PlayerState{},
-			Week:        0,
-			LastWeek:    50,
+			ID:            id,
+			State:         LOBBY,
+			PlayerState:   []*PlayerState{},
+			Week:          0,
+			LastWeek:      30,
+			IncCustomer:   10,
+			TotalCustomer: 0,
 		}
 		Games[id] = newGame
 		return newGame
@@ -172,9 +179,12 @@ func (game *Game) AddPlayer(id string) bool {
 		Pending0:      0,
 		Pending1:      0,
 		Costs:         0,
+		Delivered:     0,
 		OutgoingPrev:  []int{},
+		IncomingPrev:  []int{},
 		StockBackPrev: []int{},
 		CostPrev:      []int{},
+		DeliveredPrev: []int{},
 	}
 	game.PlayerState = append(game.PlayerState, newPlayerState)
 	return true
@@ -284,9 +294,16 @@ func (game *Game) TryStep() bool {
 		}
 	}
 
+	game.IncCustomer = game.IncCustomer + rand.Intn(5) - 2
+	if game.IncCustomer < 8 {
+		game.IncCustomer = 8
+	}
+
 	var inc = 0
 	for _, p := range pbr.Retailers {
-		p.Incoming = rand.Intn(20) // Customers
+		p.Backlog = p.Backlog * 3 / 10
+		p.Incoming = game.IncCustomer * (rand.Intn(3) + 1) / 2 // Customers
+		game.TotalCustomer = game.TotalCustomer + p.Incoming
 		inc = inc + p.Outgoing
 	}
 	if len(pbr.Wholesalers) > 0 {
@@ -315,6 +332,7 @@ func (game *Game) TryStep() bool {
 			p.Stock = 0
 		}
 		p.Costs = p.Costs + p.Stock + p.Backlog*2
+		p.Delivered = p.Delivered + p.LastSent
 	}
 
 	pbr.Manufacturers[0].Pending1 = pbr.Manufacturers[0].Outgoing
@@ -331,8 +349,10 @@ func (game *Game) TryStep() bool {
 
 	for _, p := range game.PlayerState {
 		p.OutgoingPrev = append(p.OutgoingPrev, p.Outgoing)
+		p.IncomingPrev = append(p.IncomingPrev, p.Incoming)
 		p.StockBackPrev = append(p.StockBackPrev, p.Stock-p.Backlog)
 		p.CostPrev = append(p.CostPrev, p.Costs)
+		p.DeliveredPrev = append(p.DeliveredPrev, p.Delivered)
 		p.Outgoing = -1
 	}
 
@@ -429,10 +449,16 @@ var privatePlayerStateType = graphql.NewObject(graphql.ObjectConfig{
 		"outgoingprev": &graphql.Field{
 			Type: graphql.NewList(graphql.Int),
 		},
+		"incomingprev": &graphql.Field{
+			Type: graphql.NewList(graphql.Int),
+		},
 		"stockbackprev": &graphql.Field{
 			Type: graphql.NewList(graphql.Int),
 		},
 		"costprev": &graphql.Field{
+			Type: graphql.NewList(graphql.Int),
+		},
+		"deliveredprev": &graphql.Field{
 			Type: graphql.NewList(graphql.Int),
 		},
 		"role": &graphql.Field{
@@ -456,6 +482,9 @@ var gameType = graphql.NewObject(
 				Type: graphql.Int,
 			},
 			"lastweek": &graphql.Field{
+				Type: graphql.Int,
+			},
+			"totalcustomer": &graphql.Field{
 				Type: graphql.Int,
 			},
 			"players": &graphql.Field{

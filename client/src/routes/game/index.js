@@ -42,11 +42,12 @@ function Game({ id }) {
             <div>
                 <h1>'{this.props.id}'</h1>
                 Game Complete!
+                <div>Total customers: {data.game.totalcustomer}</div>
                 <div class="player-state">
                     {data.game.playerState.sort(function(a, b) {
                         return a.role.value - b.role.value;
                         }).map(state => (
-                            <PlayerResults gameId={id} playerId={state.player.id} />
+                            <PlayerResults gameId={id} playerId={state.player.id} totalcustomer={data.game.totalcustomer} />
                         ))}
                 </div>
             </div>

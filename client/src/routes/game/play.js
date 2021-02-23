@@ -103,6 +103,7 @@ function Play() {
                 <Graph data={data.playerState.outgoingprev} title="Outgoing History" />
                 <Graph data={data.playerState.costprev} title="Costs History" />
                 <Graph data={data.playerState.stockbackprev} title="Stock History" />
+                <Graph data={data.playerState.deliveredprev} title="Delivered History" />
             </div>
         </div>
     );
