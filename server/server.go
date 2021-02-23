@@ -1,6 +1,7 @@
 package main
 
 import (
+	"errors"
 	"math/rand"
 	"net/http"
 	"os"
@@ -52,7 +53,7 @@ const (
 	NONE = iota
 	RETAILER
 	WHOLESALER
-	DISTRIBUTER
+	DISTRIBUTOR
 	MANUFACTURER
 )
 
@@ -70,8 +71,8 @@ var GameRoleMappings = []NameValueMapping{
 		Value: WHOLESALER,
 	},
 	{
-		Name:  "distributer",
-		Value: DISTRIBUTER,
+		Name:  "distributor",
+		Value: DISTRIBUTOR,
 	},
 	{
 		Name:  "manufacturer",
@@ -198,35 +199,71 @@ func (game *Game) FindPlayerState(id string) *PlayerState {
 	return nil
 }
 
+type PlayersByRole struct {
+	Retailers     []*PlayerState
+	Wholesalers   []*PlayerState
+	Distributors  []*PlayerState
+	Manufacturers []*PlayerState
+}
+
+var (
+	ErrNeedRetailers     = errors.New("need at least one retailer")
+	ErrMaxOneWholesaler  = errors.New("need up to one wholesaler")
+	ErrMaxOneDistributor = errors.New("need up to one distributor")
+	ErrNeedManufacturer  = errors.New("need exactly one manufacturer")
+	ErrNoneRole          = errors.New("all players must have an assigned role")
+)
+
+func (game *Game) GetPlayersByRole() (*PlayersByRole, error) {
+	pbr := &PlayersByRole{
+		Retailers:     []*PlayerState{},
+		Wholesalers:   []*PlayerState{},
+		Distributors:  []*PlayerState{},
+		Manufacturers: []*PlayerState{},
+	}
+
+	for _, playerState := range game.PlayerState {
+		if playerState.Role == RETAILER {
+			pbr.Retailers = append(pbr.Retailers, playerState)
+		}
+		if playerState.Role == WHOLESALER {
+			pbr.Wholesalers = append(pbr.Wholesalers, playerState)
+		}
+		if playerState.Role == DISTRIBUTOR {
+			pbr.Distributors = append(pbr.Distributors, playerState)
+		}
+		if playerState.Role == MANUFACTURER {
+			pbr.Manufacturers = append(pbr.Manufacturers, playerState)
+		}
+		if playerState.Role == NONE {
+			return pbr, ErrNoneRole
+		}
+	}
+
+	// TODO: this should be changed to '== 0' to support multiple retailers
+	if len(pbr.Retailers) != 1 {
+		return pbr, ErrNeedRetailers
+	}
+	if len(pbr.Wholesalers) > 1 {
+		return pbr, ErrMaxOneWholesaler
+	}
+	if len(pbr.Distributors) > 1 {
+		return pbr, ErrMaxOneDistributor
+	}
+	if len(pbr.Manufacturers) != 1 {
+		return pbr, ErrNeedManufacturer
+	}
+
+	return pbr, nil
+}
+
 func (game *Game) Start() bool {
 	if game.State == LOBBY {
-		var p1 *PlayerState = nil
-		var p2 *PlayerState = nil
-		var p3 *PlayerState = nil
-		var p4 *PlayerState = nil
-
-		for _, playerState := range game.PlayerState {
-			if playerState.Role == RETAILER {
-				p1 = playerState
-			}
-			if playerState.Role == WHOLESALER {
-				p2 = playerState
-			}
-			if playerState.Role == DISTRIBUTER {
-				p3 = playerState
-			}
-			if playerState.Role == MANUFACTURER {
-				p4 = playerState
-			}
+		_, err := game.GetPlayersByRole()
+		if err == nil {
+			game.State = PLAYING
+			return true
 		}
-
-		if p1 == nil || p2 == nil || p3 == nil || p4 == nil || len(game.PlayerState) != 4 {
-			return false
-		}
-
-		game.State = PLAYING
-
-		return true
 	}
 	return false
 }
@@ -236,37 +273,31 @@ func (game *Game) TryStep() bool {
 		return false
 	}
 
-	var p1 *PlayerState = nil
-	var p2 *PlayerState = nil
-	var p3 *PlayerState = nil
-	var p4 *PlayerState = nil
+	pbr, err := game.GetPlayersByRole()
+	if err != nil {
+		return false
+	}
 
 	for _, playerState := range game.PlayerState {
 		if playerState.Outgoing == -1 {
 			return false
 		}
-		if playerState.Role == RETAILER {
-			p1 = playerState
-		}
-		if playerState.Role == WHOLESALER {
-			p2 = playerState
-		}
-		if playerState.Role == DISTRIBUTER {
-			p3 = playerState
-		}
-		if playerState.Role == MANUFACTURER {
-			p4 = playerState
-		}
 	}
 
-	if p1 == nil || p2 == nil || p3 == nil || p4 == nil || len(game.PlayerState) != 4 {
-		return false
+	var inc = 0
+	for _, p := range pbr.Retailers {
+		p.Incoming = rand.Intn(20) // Customers
+		inc = inc + p.Outgoing
 	}
-
-	p1.Incoming = rand.Intn(20) // Customers
-	p2.Incoming = p1.Outgoing
-	p3.Incoming = p2.Outgoing
-	p4.Incoming = p3.Outgoing
+	if len(pbr.Wholesalers) > 0 {
+		pbr.Wholesalers[0].Incoming = inc
+		inc = pbr.Wholesalers[0].Outgoing
+	}
+	if len(pbr.Distributors) > 0 {
+		pbr.Distributors[0].Incoming = inc
+		inc = pbr.Distributors[0].Outgoing
+	}
+	pbr.Manufacturers[0].Incoming = inc
 
 	for _, p := range game.PlayerState {
 		p.Backlog = p.Backlog + p.Incoming
@@ -286,10 +317,17 @@ func (game *Game) TryStep() bool {
 		p.Costs = p.Costs + p.Stock + p.Backlog*2
 	}
 
-	p1.Pending1 = p2.LastSent
-	p2.Pending1 = p3.LastSent
-	p3.Pending1 = p4.LastSent
-	p4.Pending1 = p4.Outgoing
+	pbr.Manufacturers[0].Pending1 = pbr.Manufacturers[0].Outgoing
+	inc = pbr.Manufacturers[0].LastSent
+	if len(pbr.Distributors) > 0 {
+		pbr.Distributors[0].Pending1 = inc
+		inc = pbr.Distributors[0].LastSent
+	}
+	if len(pbr.Wholesalers) > 0 {
+		pbr.Wholesalers[0].Pending1 = inc
+		inc = pbr.Wholesalers[0].LastSent
+	}
+	pbr.Retailers[0].Pending1 = inc
 
 	for _, p := range game.PlayerState {
 		p.OutgoingPrev = append(p.OutgoingPrev, p.Outgoing)
@@ -817,6 +855,10 @@ func (h *SubscriptionHandler) handler(ws *websocket.Conn) {
 
 		switch msg.Type {
 		case "connection_init":
+			resp := SubscriptionMessage{
+				Type: "connection_ack",
+			}
+			websocket.JSON.Send(ws, resp)
 		case "start":
 			subscriber := Subscriber{
 				ID:            h.uniqueId(),

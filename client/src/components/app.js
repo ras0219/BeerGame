@@ -52,7 +52,7 @@ function AppRoot() {
         skip: !existsCookie("user-id")
     });
 
-    if (loading) return 'Loading...';
+    if (loading) return 'Loading Player...';
     if (error) {
         console.log(error);
         return "Error!";
@@ -69,7 +69,7 @@ function AppRoot() {
         )
     }
 
-    if (player == null) return 'Loading...';
+    if (player == null) return 'Loading Player....';
 
     return (
         <div>

@@ -5,7 +5,7 @@ import { GameQueries } from '../../gql/game'
 function Lobby() {
     const { loading, error, data } = useQuery(GameQueries.getRoles);
 
-    if (loading) return 'Loading...';
+    if (loading) return 'Loading Lobby...';
     if (error) {
         console.log(error);
         return "Error!";
