@@ -106,8 +106,9 @@ type Game struct {
 	Week          int            `json:"week"`
 	LastWeek      int            `json:"lastweek"`
 	TotalCustomer int            `json:"totalcustomer"`
-
 	IncCustomer   int
+
+	InitCustomer  int
 	Volatile      int
 	PctVolatile   int
 	Growth        int
@@ -139,7 +140,8 @@ func FindOrCreateGame(id string) *Game {
 			PlayerState:   []*PlayerState{},
 			Week:          0,
 			LastWeek:      30,
-			IncCustomer:   10,
+			IncCustomer:   0,
+			InitCustomer:  10,
 			TotalCustomer: 0,
 			PctVolatile:   20,
 			Volatile:      1,
@@ -164,7 +166,7 @@ func (game *Game) SetOption(name string, value int) int {
 		}
 	} else if name == "Initial Customers" {
 		if value > 0 && value <= 100 {
-			game.IncCustomer = value
+			game.InitCustomer = value
 			Subscriptions.broadcast()
 		}
 	} else if name == "Customer Volatility %" {
@@ -214,7 +216,7 @@ func (game *Game) SetOption(name string, value int) int {
 func (game *Game) GetOptions() []NameValueMapping {
 	return []NameValueMapping{
 		{"Last Week", game.LastWeek},
-		{"Initial Customers", game.IncCustomer},
+		{"Initial Customers", game.InitCustomer},
 		{"Customer Volatility %", game.PctVolatile},
 		{"Customer Volatility", game.Volatile},
 		{"Customer Constant Growth", game.Growth},
@@ -358,6 +360,7 @@ func (game *Game) Start() bool {
 		_, err := game.GetPlayersByRole()
 		if err == nil {
 			game.State = PLAYING
+			game.IncCustomer = game.InitCustomer
 			for _, p := range game.PlayerState {
 				p.Outgoing = -1
 				if game.InitStock > 0 {
