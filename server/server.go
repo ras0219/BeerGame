@@ -106,7 +106,16 @@ type Game struct {
 	Week          int            `json:"week"`
 	LastWeek      int            `json:"lastweek"`
 	TotalCustomer int            `json:"totalcustomer"`
+
 	IncCustomer   int
+	Volatile      int
+	PctVolatile   int
+	Growth        int
+	GrowthVar     int
+	Holiday       int `json:"holiday"`
+	InitStock     int
+	PctRetention  int
+	PerishablePct int
 }
 
 var Games = map[string]*Game{}
@@ -132,11 +141,89 @@ func FindOrCreateGame(id string) *Game {
 			LastWeek:      30,
 			IncCustomer:   10,
 			TotalCustomer: 0,
+			PctVolatile:   20,
+			Volatile:      1,
+			Growth:        0,
+			GrowthVar:     0,
+			Holiday:       0,
+			InitStock:     15,
+			PctRetention:  50,
+			PerishablePct: 0,
 		}
 		Games[id] = newGame
 		return newGame
 	}
 	return game
+}
+
+func (game *Game) SetOption(name string, value int) int {
+	if name == "Last Week" {
+		if value > 0 && value <= 100 {
+			game.LastWeek = value
+			Subscriptions.broadcast()
+		}
+	} else if name == "Initial Customers" {
+		if value > 0 && value <= 100 {
+			game.IncCustomer = value
+			Subscriptions.broadcast()
+		}
+	} else if name == "Customer Volatility %" {
+		if value >= 0 && value <= 100 {
+			game.PctVolatile = value
+			Subscriptions.broadcast()
+		}
+	} else if name == "Customer Volatility" {
+		if value >= 0 && value <= 100 {
+			game.Volatile = value
+			Subscriptions.broadcast()
+		}
+	} else if name == "Customer Constant Growth" {
+		if value >= -10 && value <= 10 {
+			game.Growth = value
+			Subscriptions.broadcast()
+		}
+	} else if name == "Customer Random Growth" {
+		if value >= 0 && value <= 100 {
+			game.GrowthVar = value
+			Subscriptions.broadcast()
+		}
+	} else if name == "Holiday Week Every" {
+		if value >= 0 && value <= 100 {
+			game.Holiday = value
+			Subscriptions.broadcast()
+		}
+	} else if name == "Initial Stock" {
+		if value >= -100 && value <= 100 {
+			game.InitStock = value
+			Subscriptions.broadcast()
+		}
+	} else if name == "Customer Retention %" {
+		if value >= 0 && value <= 100 {
+			game.PctRetention = value
+			Subscriptions.broadcast()
+		}
+	} else if name == "Perishability %" {
+		if value >= 0 && value <= 100 {
+			game.PerishablePct = value
+			Subscriptions.broadcast()
+		}
+	}
+
+	return 0
+}
+func (game *Game) GetOptions() []NameValueMapping {
+	return []NameValueMapping{
+		{"Last Week", game.LastWeek},
+		{"Initial Customers", game.IncCustomer},
+		{"Customer Volatility %", game.PctVolatile},
+		{"Customer Volatility", game.Volatile},
+		{"Customer Constant Growth", game.Growth},
+		{"Customer Random Growth", game.GrowthVar},
+		{"Holiday Week Every", game.Holiday},
+		{"Initial Stock", game.InitStock},
+		{"Customer Retention %", game.PctRetention},
+		{"Perishability %", game.PerishablePct},
+	}
 }
 
 func FindPlayer(id string) *Player {
@@ -170,10 +257,10 @@ func (game *Game) AddPlayer(id string) bool {
 	newPlayerState := &PlayerState{
 		PlayerID:      id,
 		Incoming:      0,
-		Outgoing:      -1,
+		Outgoing:      0,
 		Outstanding:   0,
 		LastSent:      0,
-		Stock:         15,
+		Stock:         0,
 		Backlog:       0,
 		Pending0:      0,
 		Pending1:      0,
@@ -271,6 +358,14 @@ func (game *Game) Start() bool {
 		_, err := game.GetPlayersByRole()
 		if err == nil {
 			game.State = PLAYING
+			for _, p := range game.PlayerState {
+				p.Outgoing = -1
+				if game.InitStock > 0 {
+					p.Stock = game.InitStock
+				} else {
+					p.Backlog = -game.InitStock
+				}
+			}
 			return true
 		}
 	}
@@ -293,15 +388,25 @@ func (game *Game) TryStep() bool {
 		}
 	}
 
-	game.IncCustomer = game.IncCustomer + rand.Intn(5) - 2
+	game.IncCustomer = game.IncCustomer + game.Growth + rand.Intn(game.GrowthVar+1)
 	if game.IncCustomer < 8 {
 		game.IncCustomer = 8
 	}
 
 	var inc = 0
 	for _, p := range pbr.Retailers {
-		p.Backlog = p.Backlog * 3 / 10
-		p.Incoming = game.IncCustomer * (rand.Intn(3) + 1) / 2 // Customers
+		p.Backlog = p.Backlog * game.PctRetention / 100
+		p.Incoming = game.IncCustomer
+		if game.PctVolatile > 0 {
+			p.Incoming = p.Incoming * (rand.Intn(game.PctVolatile*2+1) + 100 - game.PctVolatile) / 100
+		}
+		p.Incoming = p.Incoming + rand.Intn(game.Volatile*2+1) - game.Volatile
+		if p.Incoming < 0 {
+			p.Incoming = 0
+		}
+		if game.Holiday > 0 && (game.Week%game.Holiday == game.Holiday-1) {
+			p.Incoming = p.Incoming*3 + 5
+		}
 		game.TotalCustomer = game.TotalCustomer + p.Incoming
 		inc = inc + p.Outgoing
 	}
@@ -330,6 +435,7 @@ func (game *Game) TryStep() bool {
 			p.Backlog = p.Backlog - p.Stock
 			p.Stock = 0
 		}
+		p.Stock = p.Stock * (100 - game.PerishablePct) / 100
 		p.Costs = p.Costs + p.Stock + p.Backlog*2
 		p.Delivered = p.Delivered + p.LastSent
 	}
@@ -388,31 +494,8 @@ var playerType = graphql.NewObject(graphql.ObjectConfig{
 	},
 })
 
-var publicPlayerStateType = graphql.NewObject(graphql.ObjectConfig{
-	Name: "PublicPlayerState",
-	Fields: graphql.Fields{
-		"player": &graphql.Field{
-			Type: playerType,
-			Resolve: func(p graphql.ResolveParams) (interface{}, error) {
-				playerState := p.Source.(*PlayerState)
-				return FindPlayer(playerState.PlayerID), nil
-			},
-		},
-		"outgoing": &graphql.Field{
-			Type: graphql.Int,
-		},
-		"role": &graphql.Field{
-			Type: nameValueType,
-			Resolve: func(p graphql.ResolveParams) (interface{}, error) {
-				playerState := p.Source.(*PlayerState)
-				return GameRoleMappings[playerState.Role], nil
-			},
-		},
-	},
-})
-
-var privatePlayerStateType = graphql.NewObject(graphql.ObjectConfig{
-	Name: "PrivatePlayerState",
+var playerStateType = graphql.NewObject(graphql.ObjectConfig{
+	Name: "PlayerState",
 	Fields: graphql.Fields{
 		"player": &graphql.Field{
 			Type: playerType,
@@ -486,6 +569,9 @@ var gameType = graphql.NewObject(
 			"totalcustomer": &graphql.Field{
 				Type: graphql.Int,
 			},
+			"holiday": &graphql.Field{
+				Type: graphql.Int,
+			},
 			"players": &graphql.Field{
 				Type: graphql.NewList(playerType),
 				Resolve: func(p graphql.ResolveParams) (interface{}, error) {
@@ -508,7 +594,13 @@ var gameType = graphql.NewObject(
 				},
 			},
 			"playerState": &graphql.Field{
-				Type: graphql.NewList(publicPlayerStateType),
+				Type: graphql.NewList(playerStateType),
+			},
+			"settings": &graphql.Field{
+				Type: graphql.NewList(nameValueType),
+				Resolve: func(p graphql.ResolveParams) (interface{}, error) {
+					return p.Source.(*Game).GetOptions(), nil
+				},
 			},
 		},
 	},
@@ -542,7 +634,7 @@ var queryType = graphql.NewObject(graphql.ObjectConfig{
 			},
 		},
 		"playerState": &graphql.Field{
-			Type: privatePlayerStateType,
+			Type: playerStateType,
 			Args: graphql.FieldConfigArgument{
 				"gameId": &graphql.ArgumentConfig{
 					Type: graphql.NewNonNull(graphql.String),
@@ -703,13 +795,16 @@ var mutationType = graphql.NewObject(graphql.ObjectConfig{
 				return started, nil
 			},
 		},
-		"submitLastWeek": &graphql.Field{
-			Type: graphql.Boolean,
+		"setGameSetting": &graphql.Field{
+			Type: graphql.Int,
 			Args: graphql.FieldConfigArgument{
 				"gameId": &graphql.ArgumentConfig{
 					Type: graphql.NewNonNull(graphql.String),
 				},
-				"lastWeek": &graphql.ArgumentConfig{
+				"name": &graphql.ArgumentConfig{
+					Type: graphql.NewNonNull(graphql.String),
+				},
+				"value": &graphql.ArgumentConfig{
 					Type: graphql.NewNonNull(graphql.Int),
 				},
 			},
@@ -717,21 +812,17 @@ var mutationType = graphql.NewObject(graphql.ObjectConfig{
 				gameId, _ := p.Args["gameId"].(string)
 				game := FindGame(gameId)
 				if game == nil {
-					return false, nil
+					return 0, nil
 				}
 
 				if game.State != LOBBY {
-					return false, nil
+					return 0, nil
 				}
 
-				lastWeek, validLastWeek := p.Args["lastWeek"].(int)
-				if !validLastWeek {
-					return false, nil
-				}
+				name, _ := p.Args["name"].(string)
+				value, _ := p.Args["value"].(int)
 
-				game.LastWeek = lastWeek
-				Subscriptions.broadcast()
-				return true, nil
+				return game.SetOption(name, value), nil
 			},
 		},
 		"submitOutgoing": &graphql.Field{
@@ -761,7 +852,7 @@ var mutationType = graphql.NewObject(graphql.ObjectConfig{
 				}
 
 				outgoing, validOutgoing := p.Args["outgoing"].(int)
-				if !validOutgoing || outgoing < 0 || outgoing > 99 {
+				if !validOutgoing || outgoing < 0 || outgoing > 999 {
 					return false, nil
 				}
 
@@ -790,7 +881,7 @@ var subscriptionType = graphql.NewObject(graphql.ObjectConfig{
 			},
 		},
 		"playerState": &graphql.Field{
-			Type: privatePlayerStateType,
+			Type: playerStateType,
 			Args: graphql.FieldConfigArgument{
 				"gameId": &graphql.ArgumentConfig{
 					Type: graphql.NewNonNull(graphql.String),

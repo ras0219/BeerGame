@@ -35,6 +35,7 @@ function Play() {
         <div>
             <h1>'{this.props.game.id}' Week {this.props.game.week + 1}/{this.props.game.lastweek}</h1>
             <h2>{data.playerState.role.name}</h2>
+            {(this.props.game.holiday > 0) ? (<h2>Holiday in {this.props.game.holiday - ((this.props.game.week) % this.props.game.holiday)} Weeks</h2>) : ""}
 
             <div class="player-state">
                 {this.props.game.playerState.sort(function (a, b) {
@@ -100,11 +101,23 @@ function Play() {
             </div>
 
             <div>
+                <Graph data={data.playerState.incomingprev} title="Incoming History" />
                 <Graph data={data.playerState.outgoingprev} title="Outgoing History" />
                 <Graph data={data.playerState.costprev} title="Costs History" />
                 <Graph data={data.playerState.stockbackprev} title="Stock History" />
                 <Graph data={data.playerState.deliveredprev} title="Delivered History" />
             </div>
+
+            <h2>Game Options</h2>
+            <ul>
+                {this.props.game.settings.map(nv => (
+                    <li>
+                        <span>{nv.name}</span>
+                            &nbsp;
+                        <span>{nv.value}</span>
+                    </li>
+                ))}
+            </ul>
         </div>
     );
 }

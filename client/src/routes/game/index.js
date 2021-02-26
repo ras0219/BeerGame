@@ -49,6 +49,16 @@ function Game({ id }) {
                             <PlayerResults gameId={id} playerId={state.player.id} totalcustomer={data.game.totalcustomer} />
                         ))}
                 </div>
+                <h2>Game Options</h2>
+                <ul>
+                    {data.game.settings.map(nv => (
+                        <li>
+                            <span>{nv.name}</span>
+                            &nbsp;
+                            <span>{nv.value}</span>
+                        </li>
+                    ))}
+                </ul>
             </div>
         );
     }

@@ -7,8 +7,13 @@ export const GameSubscriptions = {
             game(gameId: $gameId) {
                 id
                 week
-                lastweek
                 totalcustomer
+                lastweek
+                holiday
+                settings {
+                    name
+                    value
+                }
                 players {
                     id
                     name
@@ -92,9 +97,9 @@ export const GameQueries = {
             changePlayerRole(gameId: $gameId, playerId: $playerId, role: $role)
         }
     `,
-    submitLastWeek: gql`
-        mutation SubmitLastWeek($gameId: String!, $lastWeek: Int!) {
-            submitLastWeek(gameId: $gameId, lastWeek: $lastWeek)
+    setGameSetting: gql`
+        mutation setGameSetting($gameId: String!, $name: String!, $value: Int!) {
+            setGameSetting(gameId: $gameId, name: $name, value: $value)
         }
     `,
     submitOutgoing: gql`
