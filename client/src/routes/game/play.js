@@ -5,6 +5,7 @@ import { useFixedSubscription } from '../../components/useFixedSubscription';
 
 import { GameQueries, GameSubscriptions } from '../../gql/game'
 import Graph from '../../components/graph'
+import GameSettings from '../../components/gamesettings'
 
 function Play() {
     const { loading, error, data } = useFixedSubscription(GameSubscriptions.playerState, {
@@ -109,15 +110,7 @@ function Play() {
             </div>
 
             <h2>Game Options</h2>
-            <ul>
-                {this.props.game.settings.map(nv => (
-                    <li>
-                        <span>{nv.name}</span>
-                            &nbsp;
-                        <span>{nv.value}</span>
-                    </li>
-                ))}
-            </ul>
+            <GameSettings game={this.props.game} />
         </div>
     );
 }

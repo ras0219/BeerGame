@@ -5,6 +5,7 @@ import { useFixedSubscription } from '../../components/useFixedSubscription';
 import Lobby from "./lobby"
 import Play from "./play"
 import PlayerResults from '../../components/playerresults'
+import GameSettings from '../../components/gamesettings'
 
 import { GameQueries, GameSubscriptions } from '../../gql/game'
 
@@ -46,19 +47,11 @@ function Game({ id }) {
                     {data.game.playerState.sort(function(a, b) {
                         return a.role.value - b.role.value;
                         }).map(state => (
-                            <PlayerResults gameId={id} playerId={state.player.id} totalcustomer={data.game.totalcustomer} />
+                            <PlayerResults playerState={state} totalcustomer={data.game.totalcustomer} />
                         ))}
                 </div>
                 <h2>Game Options</h2>
-                <ul>
-                    {data.game.settings.map(nv => (
-                        <li>
-                            <span>{nv.name}</span>
-                            &nbsp;
-                            <span>{nv.value}</span>
-                        </li>
-                    ))}
-                </ul>
+                <GameSettings game={data.game} />
             </div>
         );
     }
