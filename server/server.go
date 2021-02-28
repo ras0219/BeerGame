@@ -99,27 +99,58 @@ type PlayerState struct {
 	DeliveredPrev []int `json:"deliveredprev"`
 }
 
-type Game struct {
-	ID            string         `json:"id"`
-	State         int            `json:"state"`
-	PlayerState   []*PlayerState `json:"playerState"`
-	Week          int            `json:"week"`
-	LastWeek      int            `json:"lastweek"`
-	TotalCustomer int            `json:"totalcustomer"`
-	IncCustomer   int
-
+type GameSettings struct {
+	LastWeek      int
 	InitCustomer  int
 	Volatile      int
 	PctVolatile   int
 	Growth        int
 	GrowthVar     int
-	Holiday       int `json:"holiday"`
+	Holiday       int
 	InitStock     int
 	PctRetention  int
 	PerishablePct int
 }
 
+type Game struct {
+	ID            string         `json:"id"`
+	State         int            `json:"state"`
+	PlayerState   []*PlayerState `json:"playerState"`
+	Week          int            `json:"week"`
+	TotalCustomer int            `json:"totalcustomer"`
+	IncCustomer   int
+
+	Settings GameSettings
+}
+
 var Games = map[string]*Game{}
+
+var (
+	GameSettingsDefault = GameSettings{
+		LastWeek:      30,
+		InitCustomer:  8,
+		PctVolatile:   20,
+		Volatile:      1,
+		Growth:        0,
+		GrowthVar:     0,
+		Holiday:       0,
+		InitStock:     16,
+		PctRetention:  100,
+		PerishablePct: 0,
+	}
+	GameSettingsHolidays = GameSettings{
+		LastWeek:      50,
+		InitCustomer:  10,
+		PctVolatile:   20,
+		Volatile:      1,
+		Growth:        0,
+		GrowthVar:     2,
+		Holiday:       10,
+		InitStock:     30,
+		PctRetention:  50,
+		PerishablePct: 0,
+	}
+)
 
 func FindGame(id string) *Game {
 	game, _ := Games[id]
@@ -139,18 +170,9 @@ func FindOrCreateGame(id string) *Game {
 			State:         LOBBY,
 			PlayerState:   []*PlayerState{},
 			Week:          0,
-			LastWeek:      30,
 			IncCustomer:   0,
-			InitCustomer:  10,
 			TotalCustomer: 0,
-			PctVolatile:   20,
-			Volatile:      1,
-			Growth:        0,
-			GrowthVar:     0,
-			Holiday:       0,
-			InitStock:     15,
-			PctRetention:  50,
-			PerishablePct: 0,
+			Settings:      GameSettingsDefault,
 		}
 		Games[id] = newGame
 		return newGame
@@ -158,7 +180,16 @@ func FindOrCreateGame(id string) *Game {
 	return game
 }
 
-func (game *Game) SetOption(name string, value int) int {
+func (game *GameSettings) SetOption(name string, value int) int {
+	if name == "preset" {
+		if value == 0 {
+			*game = GameSettingsDefault
+		} else if value == 1 {
+			*game = GameSettingsHolidays
+		}
+		Subscriptions.broadcast()
+		return 0
+	}
 	if name == "Last Week" {
 		if value > 0 && value <= 100 {
 			game.LastWeek = value
@@ -213,7 +244,7 @@ func (game *Game) SetOption(name string, value int) int {
 
 	return 0
 }
-func (game *Game) GetOptions() []NameValueMapping {
+func (game *GameSettings) GetOptions() []NameValueMapping {
 	return []NameValueMapping{
 		{"Last Week", game.LastWeek},
 		{"Initial Customers", game.InitCustomer},
@@ -360,13 +391,13 @@ func (game *Game) Start() bool {
 		_, err := game.GetPlayersByRole()
 		if err == nil {
 			game.State = PLAYING
-			game.IncCustomer = game.InitCustomer
+			game.IncCustomer = game.Settings.InitCustomer
 			for _, p := range game.PlayerState {
 				p.Outgoing = -1
-				if game.InitStock > 0 {
-					p.Stock = game.InitStock
+				if game.Settings.InitStock > 0 {
+					p.Stock = game.Settings.InitStock
 				} else {
-					p.Backlog = -game.InitStock
+					p.Backlog = -game.Settings.InitStock
 				}
 			}
 			return true
@@ -391,23 +422,23 @@ func (game *Game) TryStep() bool {
 		}
 	}
 
-	game.IncCustomer = game.IncCustomer + game.Growth + rand.Intn(game.GrowthVar+1)
+	game.IncCustomer = game.IncCustomer + game.Settings.Growth + rand.Intn(game.Settings.GrowthVar+1)
 	if game.IncCustomer < 8 {
 		game.IncCustomer = 8
 	}
 
 	var inc = 0
 	for _, p := range pbr.Retailers {
-		p.Backlog = p.Backlog * game.PctRetention / 100
+		p.Backlog = p.Backlog * game.Settings.PctRetention / 100
 		p.Incoming = game.IncCustomer
-		if game.PctVolatile > 0 {
-			p.Incoming = p.Incoming * (rand.Intn(game.PctVolatile*2+1) + 100 - game.PctVolatile) / 100
+		if game.Settings.PctVolatile > 0 {
+			p.Incoming = p.Incoming * (rand.Intn(game.Settings.PctVolatile*2+1) + 100 - game.Settings.PctVolatile) / 100
 		}
-		p.Incoming = p.Incoming + rand.Intn(game.Volatile*2+1) - game.Volatile
+		p.Incoming = p.Incoming + rand.Intn(game.Settings.Volatile*2+1) - game.Settings.Volatile
 		if p.Incoming < 0 {
 			p.Incoming = 0
 		}
-		if game.Holiday > 0 && (game.Week%game.Holiday == game.Holiday-1) {
+		if game.Settings.Holiday > 0 && (game.Week%game.Settings.Holiday == game.Settings.Holiday-1) {
 			p.Incoming = p.Incoming*3 + 5
 		}
 		game.TotalCustomer = game.TotalCustomer + p.Incoming
@@ -438,8 +469,8 @@ func (game *Game) TryStep() bool {
 			p.Backlog = p.Backlog - p.Stock
 			p.Stock = 0
 		}
-		p.Stock = p.Stock * (100 - game.PerishablePct) / 100
 		p.Costs = p.Costs + p.Stock + p.Backlog*2
+		p.Stock = p.Stock * (100 - game.Settings.PerishablePct) / 100
 		p.Delivered = p.Delivered + p.LastSent
 	}
 
@@ -464,7 +495,7 @@ func (game *Game) TryStep() bool {
 		p.Outgoing = -1
 	}
 
-	if game.Week >= game.LastWeek-1 {
+	if game.Week >= game.Settings.LastWeek-1 {
 		game.State = FINISHED
 	} else {
 		game.Week = game.Week + 1
@@ -568,12 +599,18 @@ var gameType = graphql.NewObject(
 			},
 			"lastweek": &graphql.Field{
 				Type: graphql.Int,
+				Resolve: func(p graphql.ResolveParams) (interface{}, error) {
+					return p.Source.(*Game).Settings.LastWeek, nil
+				},
 			},
 			"totalcustomer": &graphql.Field{
 				Type: graphql.Int,
 			},
 			"holiday": &graphql.Field{
 				Type: graphql.Int,
+				Resolve: func(p graphql.ResolveParams) (interface{}, error) {
+					return p.Source.(*Game).Settings.Holiday, nil
+				},
 			},
 			"players": &graphql.Field{
 				Type: graphql.NewList(playerType),
@@ -602,7 +639,7 @@ var gameType = graphql.NewObject(
 			"settings": &graphql.Field{
 				Type: graphql.NewList(nameValueType),
 				Resolve: func(p graphql.ResolveParams) (interface{}, error) {
-					return p.Source.(*Game).GetOptions(), nil
+					return p.Source.(*Game).Settings.GetOptions(), nil
 				},
 			},
 		},
@@ -825,7 +862,7 @@ var mutationType = graphql.NewObject(graphql.ObjectConfig{
 				name, _ := p.Args["name"].(string)
 				value, _ := p.Args["value"].(int)
 
-				return game.SetOption(name, value), nil
+				return game.Settings.SetOption(name, value), nil
 			},
 		},
 		"submitOutgoing": &graphql.Field{

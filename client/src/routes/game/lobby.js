@@ -1,3 +1,4 @@
+import { useState } from 'preact/hooks';
 import { useQuery, useMutation } from '@apollo/react-hooks';
 
 import { GameQueries } from '../../gql/game'
@@ -25,6 +26,8 @@ function Lobby() {
             gameId: this.props.game.id
         },
     });
+
+    const [editData, setEditData] = useState({});
 
     if (loading) return 'Loading Lobby...';
     if (error) {
@@ -77,11 +80,29 @@ function Lobby() {
                     <li>
                         <span>{nv.name}</span>
                         &nbsp;
-                        <input type="text" value={nv.value} onfocusout={e => {
+                        <input type="text" value={editData.name == nv.name ? editData.value : nv.value} onfocusout={e => {
+                            setEditData({});
                             setGameSetting({ variables: { name: nv.name, value: e.target.value } });
-                        }} />
+                        }} onInput={e => {
+                            setEditData({ name: nv.name, value: e.target.value });
+                        }}/>
                     </li>
                 ))}
+            </ul>
+            <h2>Game Presets</h2>
+            <ul>
+                <li>
+                    <a href="#" onClick={e => {
+                        e.preventDefault();
+                        setGameSetting({ variables: { name: "preset", value: 0 } });
+                    }}>Default</a>
+                </li>
+                <li>
+                    <a href="#" onClick={e => {
+                        e.preventDefault();
+                        setGameSetting({ variables: { name: "preset", value: 1 } });
+                    }}>Holidays</a>
+                </li>
             </ul>
         </div>
     );
