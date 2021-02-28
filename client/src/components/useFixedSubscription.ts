@@ -12,12 +12,12 @@ export function useFixedSubscription<TData = any, TVariables = OperationVariable
     data?: TData | undefined;
     error?: import("apollo-client").ApolloError | undefined;
 } {
-    const [data, setData] = useState(null);
+    const [data, setData] = useState(undefined);
 
     const { error, variables } = useSubscription(subscription, {
         ...options,
         onSubscriptionData: opts => { setData(opts.subscriptionData.data); }
     });
 
-    return { loading: data === null && error === undefined, error, data, variables };
+    return { loading: data === undefined && error === undefined, error, data, variables };
 }

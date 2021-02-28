@@ -43,8 +43,8 @@ function Preferences() {
                     const { value } = e.target;
                     setState({ name: value })
                 }} />
-                <span>{getCookie("user-id")}</span>
                 <button type="submit">Set Name</button>
+                <div style="font-size: 8pt;">User-Id: {getCookie("user-id")}</div>
             </form>
         </div>
     );

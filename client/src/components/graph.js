@@ -6,21 +6,21 @@ function Graph() {
     useEffect(() => {
         var svg = d3.select(svgRef.current);
         svg.selectChildren().remove();
-        svg = svg.attr("width", 200)
+        svg = svg.attr("width", 400)
             .attr("height", 200)
             .style("padding", 2)
             .style("margin", 2)
             .append("g")
-            .attr("transform", "translate(35,25)");
+            .attr("transform", "translate(45,25)");
         if (this.props.data.length == 0) {
             return;
         }
         var h = 150;
-        var w = 150;
+        var w = 350;
         if (this.props.title !== undefined) {
             svg.append("text")
                 .attr("x", w / 2)
-                .attr("y", 0)
+                .attr("y", -10)
                 .attr("text-anchor", "middle")
                 .text(this.props.title);
         }

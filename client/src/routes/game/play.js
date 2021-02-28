@@ -6,6 +6,7 @@ import { useFixedSubscription } from '../../components/useFixedSubscription';
 import { GameQueries, GameSubscriptions } from '../../gql/game'
 import Graph from '../../components/graph'
 import GameSettings from '../../components/gamesettings'
+import Results from './results'
 
 function Play() {
     const { loading, error, data } = useFixedSubscription(GameSubscriptions.playerState, {
@@ -30,6 +31,14 @@ function Play() {
     if (error) {
         console.log(error);
         return "Error!";
+    }
+
+    if (data.playerState === null) {
+        // Player not joined to game, and game in progress
+
+        return (
+            <Results game={this.props.game}/>
+        )
     }
 
     return (

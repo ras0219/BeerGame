@@ -40,7 +40,7 @@ html, body {
 .player-state {
     position: relative;
     display: flex;
-    width: 26em;
+    width: 52em;
 }
 .player-state .block {
     display: flex;

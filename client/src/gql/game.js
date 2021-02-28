@@ -30,7 +30,19 @@ export const GameSubscriptions = {
                         name
                         value
                     }
+                    incoming
                     outgoing
+                    stock
+                    backlog
+                    lastsent
+                    pending0
+                    outgoingprev
+                    incomingprev
+                    stockbackprev
+                    deliveredprev
+                    costprev
+                    costs
+                    outstanding
                 }
             }
         }

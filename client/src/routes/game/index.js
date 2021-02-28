@@ -4,6 +4,7 @@ import { useFixedSubscription } from '../../components/useFixedSubscription';
 
 import Lobby from "./lobby"
 import Play from "./play"
+import Results from "./results"
 import PlayerResults from '../../components/playerresults'
 import GameSettings from '../../components/gamesettings'
 
@@ -39,20 +40,7 @@ function Game({ id }) {
         );
     } else if (data.game.state.name == "finished") {
         return (
-            <div>
-                <h1>'{this.props.id}'</h1>
-                Game Complete!
-                <div>Total customers: {data.game.totalcustomer}</div>
-                <div class="player-state">
-                    {data.game.playerState.sort(function(a, b) {
-                        return a.role.value - b.role.value;
-                        }).map(state => (
-                            <PlayerResults playerState={state} totalcustomer={data.game.totalcustomer} />
-                        ))}
-                </div>
-                <h2>Game Options</h2>
-                <GameSettings game={data.game} />
-            </div>
+            <Results game={data.game}/>
         );
     }
     return (
